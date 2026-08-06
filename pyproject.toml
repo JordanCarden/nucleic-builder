@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nucleic-builder"
+version = "0.4.0"
+description = "Canonical RNA and experimental DNA-alpha sequence/PDB to Martini 3 ITP/GRO generator"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{name = "Nucleic Builder contributors"}]
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.scripts]
+nucleic-builder = "nucleic_builder.__main__:main"
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+include = ["nucleic_builder*"]
+exclude = ["nucleic_builder._vendor.martini_3_dna_rna.tests*"]
+
+[tool.setuptools.package-data]
+nucleic_builder = [
+  "_vendor/martini_3_dna_rna/*.py",
+  "_vendor/martini_3_dna_rna/*.md",
+  "_vendor/martini_3_dna_rna/rna_v3.0.0_itps/*.itp",
+  "_vendor/martini_3_dna_rna/rna_v3.0.0_itps/*.map",
+  "_vendor/martini_3_dna_rna/dna_alpha_itps/*.itp",
+  "_vendor/martini_3_dna_rna/dna_alpha_itps/*.map",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "nucleic_builder/_vendor/martini_3_dna_rna/tests"]
+markers = [
+  "integration: requires a working GROMACS gmx executable",
+  "sequence_backend: requires the pinned local AmberClassic NAB backend",
+]

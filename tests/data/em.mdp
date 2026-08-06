@@ -1,0 +1,24 @@
+define                      = -DPOSRES
+integrator                  = steep
+emtol                       = 100.0
+emstep                      = 0.001
+nsteps                      = 5000
+nstxout                     = 0
+nstenergy                   = 500
+nstlog                      = 500
+
+cutoff-scheme               = Verlet
+nstlist                     = 20
+pbc                         = xyz
+verlet-buffer-tolerance     = 0.005
+
+coulombtype                 = reaction-field
+rcoulomb                    = 1.1
+epsilon_r                   = 15
+epsilon_rf                  = 0
+vdw_type                    = cutoff
+vdw-modifier                = Potential-shift-verlet
+rvdw                        = 1.1
+
+lincs-warnangle             = 60
+constraints                 = none
