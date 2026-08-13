@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nucleic-builder"
-version = "0.4.0"
-description = "Canonical RNA and experimental DNA-alpha sequence/PDB to Martini 3 ITP/GRO generator"
+version = "0.5.0"
+description = "Canonical RNA/DNA sequence/PDB to Martini 2 or Martini 3 ITP/GRO generator"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "GPL-3.0-only"
@@ -34,6 +34,10 @@ nucleic_builder = [
   "_vendor/martini_3_dna_rna/rna_v3.0.0_itps/*.map",
   "_vendor/martini_3_dna_rna/dna_alpha_itps/*.itp",
   "_vendor/martini_3_dna_rna/dna_alpha_itps/*.map",
+  "_vendor/martini_2_nucleic/*.itp",
+  "_vendor/martini_2_nucleic/*.py",
+  "_vendor/martini_2_nucleic/*.upstream",
+  "_vendor/martini_2_nucleic/*.md",
 ]
 
 [tool.pytest.ini_options]

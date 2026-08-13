@@ -1,4 +1,4 @@
-"""Build Martini 3 RNA and experimental DNA-alpha molecule files."""
+"""Build Martini 2 or Martini 3 RNA/DNA molecule files."""
 
 from .core import BuildResult
 from .dna_builder import build_dna
@@ -15,4 +15,4 @@ __all__ = [
     "build_rna",
     "build_rna_from_sequence",
 ]
-__version__ = "0.4.0"
+__version__ = "0.5.0"

@@ -20,6 +20,7 @@ from .errors import ConversionError, OutputValidationError
 
 VENDOR_ROOT = Path(__file__).parent / "_vendor" / "martini_3_dna_rna"
 ELASTIC_NETWORK_POLICIES = frozenset({"legacy", "intrachain", "off"})
+MARTINI_VERSIONS = frozenset({2, 3})
 AMBERCLASSIC_REPOSITORY = "https://github.com/Amber-MD/AmberClassic"
 AMBERCLASSIC_TAG = "v2.0"
 AMBERCLASSIC_COMMIT = "bdb3e0dee5b90f2be2950e26cfad1ae5a7440cae"
@@ -47,6 +48,10 @@ class BuildResult:
     complement: str | None = None
     intermediate_pdb_sha256: str | None = None
     polymer_type: str = "rna"
+    strand_mode: str | None = None
+    martini_version: int = 3
+    force_field_files: tuple[Path, ...] = ()
+    backend_topology_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,14 +59,15 @@ class GeneratedStructureProvenance:
     """Provenance for a private sequence-derived all-atom intermediate."""
 
     sequence_5to3: str
-    complement_5to3: str
-    paired_complement_3to5: str
+    complement_5to3: str | None
+    paired_complement_3to5: str | None
     generator_name: str
     generator_version: str
     generator_repository: str
     generator_commit: str
     generator_settings: str
     intermediate_pdb_sha256: str
+    strand_mode: str = "duplex"
 
 
 @dataclass(frozen=True)
@@ -137,6 +143,20 @@ class ConsistencyReport:
     residue_count: int
     total_charge: float
     interaction_count: int
+
+
+def normalize_martini_version(version: int | str) -> int:
+    """Return a validated numeric Martini major version."""
+
+    try:
+        normalized = int(version)
+    except (TypeError, ValueError) as exc:
+        raise ConversionError(
+            f"Unsupported Martini version {version!r}; choose 2 or 3"
+        ) from exc
+    if normalized not in MARTINI_VERSIONS or str(version).strip() not in {"2", "3"}:
+        raise ConversionError(f"Unsupported Martini version {version!r}; choose 2 or 3")
+    return normalized
 
 
 _INDEX_COUNTS = {

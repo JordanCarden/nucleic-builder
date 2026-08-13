@@ -121,6 +121,7 @@ def build_dna_from_sequence(
     elastic_network: str,
     verbose: bool = False,
     amberclassic_home: str | Path | None = None,
+    martini_version: int | str = 3,
 ) -> BuildResult:
     """Build experimental DNA-alpha files for an ideal canonical B-form duplex."""
 
@@ -151,5 +152,6 @@ def build_dna_from_sequence(
             force=force,
             elastic_network=elastic_network,
             verbose=verbose,
+            martini_version=martini_version,
             _generated_structure=provenance,
         )

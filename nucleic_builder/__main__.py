@@ -11,6 +11,7 @@ from .core import ELASTIC_NETWORK_POLICIES
 from .dna_builder import DNA_MODEL_WARNING, build_dna
 from .dna_sequence_builder import build_dna_from_sequence
 from .errors import BuilderError
+from .martini2_builder import MARTINI2_MODEL_WARNING
 from .rna_builder import build_rna
 from .rna_sequence_builder import build_rna_from_sequence
 
@@ -25,17 +26,24 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=_program_name(),
         description=(
-            "Convert canonical RNA or experimental DNA into molecule-level ITP and "
-            "GRO files. DNA uses the separate unpublished DNA-alpha model."
+            "Convert canonical RNA or DNA into molecule-level ITP and GRO files. "
+            "Martini 3 is the default; its DNA backend is experimental DNA-alpha."
         ),
+    )
+    parser.add_argument(
+        "--martini-version",
+        choices=(2, 3),
+        default=3,
+        type=int,
+        help="Martini major version; defaults to 3",
     )
     parser.add_argument(
         "--polymer",
         choices=("rna", "dna"),
         default="rna",
         help=(
-            "polymer/model selection; defaults to rna. DNA must be "
-            "selected explicitly with --polymer dna and is experimental/unpublished"
+            "polymer selection; defaults to rna. DNA must be selected explicitly; "
+            "Martini 3 DNA is experimental/unpublished, while Martini 2 DNA is published"
         ),
     )
     source = parser.add_mutually_exclusive_group(required=True)
@@ -43,8 +51,18 @@ def _parser() -> argparse.ArgumentParser:
     source.add_argument(
         "--sequence",
         help=(
-            "one canonical strand, 5' to 3'; builds its antiparallel complement "
-            "(RNA: A/C/G/U, DNA: A/C/G/T)"
+            "one canonical strand, 5' to 3' (RNA: A/C/G/U, DNA: A/C/G/T); "
+            "RNA strand count is selected with --strand-mode, while DNA always "
+            "builds its antiparallel complement"
+        ),
+    )
+    parser.add_argument(
+        "--strand-mode",
+        choices=("duplex", "single"),
+        help=(
+            "RNA sequence input only; 'single' retains exactly the entered strand "
+            "in an idealized A-form-derived starting conformation, while 'duplex' "
+            "builds the current antiparallel duplex (default: duplex)"
         ),
     )
     parser.add_argument("--name", required=True, help="GROMACS molecule and output basename")
@@ -57,7 +75,7 @@ def _parser() -> argparse.ArgumentParser:
         choices=sorted(ELASTIC_NETWORK_POLICIES),
         required=True,
         help=(
-            "elastic-network policy: legacy preserves the Phase 1/upstream default "
+            "elastic-network policy: legacy retains the selected backend's network "
             "including cross-chain bonds; intrachain removes cross-chain elastic "
             "bonds; off disables the network"
         ),
@@ -73,8 +91,15 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    if args.polymer == "dna":
+    parser = _parser()
+    args = parser.parse_args(argv)
+    if args.strand_mode is not None and (
+        args.polymer != "rna" or args.sequence is None
+    ):
+        parser.error("--strand-mode is valid only with RNA --sequence input")
+    if args.martini_version == 2:
+        print(f"WARNING: {MARTINI2_MODEL_WARNING}", file=sys.stderr)
+    elif args.polymer == "dna":
         print(f"WARNING: {DNA_MODEL_WARNING}", file=sys.stderr)
     try:
         if args.polymer == "dna" and args.sequence is not None:
@@ -85,6 +110,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 elastic_network=args.elastic_network,
                 verbose=args.verbose,
+                martini_version=args.martini_version,
             )
         elif args.polymer == "dna":
             result = build_dna(
@@ -94,6 +120,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 elastic_network=args.elastic_network,
                 verbose=args.verbose,
+                martini_version=args.martini_version,
             )
         elif args.sequence is not None:
             result = build_rna_from_sequence(
@@ -102,7 +129,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.output_dir,
                 force=args.force,
                 elastic_network=args.elastic_network,
+                strand_mode=args.strand_mode or "duplex",
                 verbose=args.verbose,
+                martini_version=args.martini_version,
             )
         else:
             result = build_rna(
@@ -112,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
                 force=args.force,
                 elastic_network=args.elastic_network,
                 verbose=args.verbose,
+                martini_version=args.martini_version,
             )
     except BuilderError as exc:
         print(f"nucleic-builder: error: {exc}", file=sys.stderr)

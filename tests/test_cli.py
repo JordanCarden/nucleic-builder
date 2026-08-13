@@ -163,6 +163,37 @@ def test_cli_rejects_dna_sequence_before_backend_lookup(tmp_path: Path) -> None:
     assert not tmp_path.exists() or list(tmp_path.iterdir()) == []
 
 
+def test_cli_rejects_strand_mode_outside_rna_sequence_input(tmp_path: Path) -> None:
+    env = os.environ.copy()
+    root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = str(root)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "nucleic_builder",
+            "--input",
+            str(UPSTREAM_DSRNA),
+            "--strand-mode",
+            "single",
+            "--name",
+            "InvalidModeScope",
+            "--output-dir",
+            str(tmp_path),
+            "--elastic-network",
+            "off",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert "--strand-mode is valid only with RNA --sequence input" in completed.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_dna_pdb_cli_requires_explicit_selection_and_is_prominently_labeled(
     tmp_path: Path,
 ) -> None:
@@ -237,6 +268,47 @@ def test_sequence_cli_writes_only_itp_and_gro(tmp_path: Path) -> None:
     assert sorted(path.name for path in tmp_path.iterdir()) == [
         "SEQRNA.gro",
         "SEQRNA.itp",
+    ]
+
+
+@pytest.mark.skipif(
+    not AMBERCLASSIC_HOME,
+    reason="single-strand sequence CLI test requires NUCLEIC_BUILDER_AMBERCLASSIC_HOME",
+)
+def test_single_strand_sequence_cli_writes_only_itp_and_gro(tmp_path: Path) -> None:
+    env = os.environ.copy()
+    root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = str(root)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "nucleic_builder",
+            "--sequence",
+            "GCAUCG",
+            "--strand-mode",
+            "single",
+            "--name",
+            "SEQSSRNA",
+            "--output-dir",
+            str(tmp_path),
+            "--elastic-network",
+            "off",
+        ],
+        cwd=root,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert "Validated 46 beads, 6 residues, 1 chain(s), charge -5 e" in completed.stdout
+    assert "Running:" not in completed.stdout + completed.stderr
+    assert "INFO:" not in completed.stderr
+    assert "; Strand mode: single" in (tmp_path / "SEQSSRNA.itp").read_text()
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "SEQSSRNA.gro",
+        "SEQSSRNA.itp",
     ]
 
 
