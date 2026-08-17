@@ -30,6 +30,7 @@ from .core import (
     _remove_cross_chain_elastic_bonds,
     _validate_coordinate_units,
     _write_gro,
+    normalize_martini_version,
     parse_itp,
     validate_outputs,
 )
@@ -240,9 +241,25 @@ def build_dna(
     force: bool = False,
     elastic_network: str = "legacy",
     verbose: bool = False,
+    martini_version: int | str = 3,
     _generated_structure: GeneratedStructureProvenance | None = None,
 ) -> BuildResult:
     """Build experimental DNA-alpha ``NAME.itp`` and ``NAME.gro`` files."""
+
+    version = normalize_martini_version(martini_version)
+    if version == 2:
+        from .martini2_builder import build_martini2
+
+        return build_martini2(
+            input_pdb,
+            name,
+            output_dir,
+            polymer="dna",
+            force=force,
+            elastic_network=elastic_network,
+            verbose=verbose,
+            generated_structure=_generated_structure,
+        )
 
     if not _NAME_PATTERN.fullmatch(name):
         raise ConversionError(

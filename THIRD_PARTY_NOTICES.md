@@ -1,5 +1,70 @@
 # Third-party notices and provenance
 
+## Official Martini 2 DNA/RNA release
+
+- Project: Martini Force Field Initiative DNA/RNA model
+- Source page: https://cgmartini.nl/docs/downloads/force-field-parameters/martini2/nucleic_acids.html
+- Release archive: `na-tutorials_20170815.tar`
+- Archive URL: https://cgmartini-library.s3.ca-central-1.amazonaws.com/1_Downloads/ff_parameters/martini2/nucleic_acids/rna/na-tutorials_20170815.tar
+- Archive SHA-256: `15ba5bf45b9890603f0113d2021074f397a7f8d0264cb2093e970198f4b6c20b`
+- Release README date: 2017-06-05
+- Retrieved: 2026-08-12
+- Converter-reported version: 2.2
+
+Vendored byte-for-byte under
+`nucleic_builder/_vendor/martini_2_nucleic/`:
+
+- `martinize-nucleotide.py.upstream`, SHA-256
+  `e02a0ede1f444ccbd7fc9a7e2c0ee6910642887490210bf2f7c1076a2cce3edb`
+- `martini_v2.1-dna.itp`, SHA-256
+  `cc7c200dff400e97311213b93127697c6f8c21edb2350926072f0194eb90efe6`
+- `martini_v2.1P-dna.itp`, SHA-256
+  `b8dea4ffbef3a439db0baa465825528db919b026b1a821b374f1a6a605912ff0`
+- `martini_v2.0_ions.itp`, SHA-256
+  `c5b9b5b9541aa6d77b5b41a4b19dee62c1b8631c73e79cf76e1b281a144b4b4e`
+- `README.upstream`, SHA-256
+  `be27f9805bece1d02eb599797b8b0b0a32255688e79b93b631c47ad9382a3002`
+
+The standard-water `martini_v2.1-dna.itp` is the release's combined DNA/RNA
+particle definition file. Its historical upstream filename is retained. The
+backend does not translate or rename its native nucleic-acid bead types.
+
+The official converter uses Python 2 syntax. `martinize_nucleotide_py3.py` is a
+compatibility port made with `2to3` plus the missed Python 3 iterator, slicing,
+and `zip` fixes. Its SHA-256 is
+`ee858476b4e09e0f13d0131ed9b2f617792ca87142af8364daa453913eb8e9fd`.
+The force-field classes, mappings, bead names/types, bonded parameters, and
+topology-mode settings are unchanged. Wrapper post-processing changes only the
+requested molecule name, normalizes the converter's gapped one-bead-per-charge-
+group numbering, replaces ephemeral private paths in the converter-options
+comment, scopes its `RUBBER_BANDS` preprocessor symbol, selects network scope,
+and adds provenance.
+
+The downloaded archive has copyright lines in the force-field files but no
+standalone `LICENSE` or `COPYING` file and no explicit license statement in its
+README or converter. This notice records that fact and does not infer a license
+for those upstream files. The surrounding project remains GPL-3.0-only.
+
+Scientific citations:
+
+> J. J. Uusitalo, H. I. Ingolfsson, P. Akhshi, D. P. Tieleman, and
+> S. J. Marrink, “Martini Coarse-Grained Force Field: Extension to DNA,”
+> *J. Chem. Theory Comput.* 11, 3932–3945 (2015), DOI
+> 10.1021/acs.jctc.5b00286.
+
+> J. J. Uusitalo, H. I. Ingolfsson, S. J. Marrink, and I. Faustino,
+> “Martini Coarse-Grained Force Field: Extension to RNA,” *Biophys. J.* 113,
+> 246–256 (2017), DOI 10.1016/j.bpj.2017.05.043.
+
+The publications state that the models do not support folding/hairpin
+formation, hybridization, melting, or intercalation because base pairing lacks
+directional hydrogen bonding and duplex/tertiary structures depend on elastic
+networks. The RNA publication recommends a maximum 10 fs timestep and notes
+that smaller steps may be necessary. The official website now categorizes the
+Martini 2 tutorial as legacy material. The official converter additionally
+emits a topology header that calls the model a development beta and says not
+to use it for production runs; generated ITPs preserve that warning.
+
 ## Martini 3 RNA converter and RNA parameters
 
 - Project: `DanYev/Martini-3-DNA-RNA`

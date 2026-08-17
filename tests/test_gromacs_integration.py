@@ -15,6 +15,7 @@ from nucleic_builder import (
     build_rna_from_sequence,
 )
 from nucleic_builder.dna_builder import DNA_UPSTREAM_PARAMETER_DIR
+from nucleic_builder.martini2_builder import MARTINI2_FORCE_FIELD, MARTINI2_IONS
 
 from .conftest import (
     HAIRPIN,
@@ -111,15 +112,17 @@ def molecule_counts(topology: Path) -> dict[str, int]:
         "expected_charge",
         "expected_beads",
         "elastic_network",
+        "strand_mode",
     ),
     [
-        ("rna", UPSTREAM_DSRNA, None, "RNA", -42, 339, "legacy"),
-        ("rna", INDEPENDENT_RNA, None, "RNA1", -26, 208, "off"),
-        ("rna", SSRNA, None, "SSRNA6", -5, 48, "off"),
-        ("rna", HAIRPIN, None, "HAIRPIN26", -25, 203, "intrachain"),
-        ("rna", None, "GCAUCG", "SEQRNA", -10, 92, "off"),
-        ("dna", UPSTREAM_DSDNA, None, "DNA", -22, 190, "legacy"),
-        ("dna", None, "GCATCG", "SEQDNA", -10, 94, "off"),
+        ("rna", UPSTREAM_DSRNA, None, "RNA", -42, 339, "legacy", None),
+        ("rna", INDEPENDENT_RNA, None, "RNA1", -26, 208, "off", None),
+        ("rna", SSRNA, None, "SSRNA6", -5, 48, "off", None),
+        ("rna", HAIRPIN, None, "HAIRPIN26", -25, 203, "intrachain", None),
+        ("rna", None, "GCAUCG", "SEQRNA", -10, 92, "off", "duplex"),
+        ("rna", None, "GCAUCG", "SEQSSRNA", -5, 46, "off", "single"),
+        ("dna", UPSTREAM_DSDNA, None, "DNA", -22, 190, "legacy", None),
+        ("dna", None, "GCATCG", "SEQDNA", -10, 94, "off", None),
     ],
     ids=[
         "upstream-dsRNA-legacy",
@@ -127,6 +130,7 @@ def molecule_counts(topology: Path) -> dict[str, int]:
         "experimental-ssRNA-off",
         "experimental-hairpin-intrachain",
         "sequence-ideal-dsRNA-off",
+        "sequence-idealized-ssRNA-off",
         "experimental-upstream-dsDNA-legacy",
         "experimental-sequence-ideal-dsDNA-off",
     ],
@@ -140,6 +144,7 @@ def test_solvated_neutralized_em_restrained_and_unrestrained_md(
     expected_charge: int,
     expected_beads: int,
     elastic_network: str,
+    strand_mode: str | None,
 ) -> None:
     molecule_dir = tmp_path / "molecule"
     if sequence is not None and polymer == "rna":
@@ -152,6 +157,7 @@ def test_solvated_neutralized_em_restrained_and_unrestrained_md(
             name,
             molecule_dir,
             elastic_network=elastic_network,
+            strand_mode=strand_mode or "duplex",
         )
     elif sequence is not None:
         if not os.environ.get("NUCLEIC_BUILDER_AMBERCLASSIC_HOME"):
@@ -183,6 +189,8 @@ def test_solvated_neutralized_em_restrained_and_unrestrained_md(
     assert result.total_charge == expected_charge
     assert result.bead_count == expected_beads
     assert result.elastic_network == elastic_network
+    if strand_mode is not None:
+        assert result.strand_mode == strand_mode
 
     topol_dir = tmp_path / "topol"
     topol_dir.mkdir()
@@ -403,3 +411,170 @@ def test_solvated_neutralized_em_restrained_and_unrestrained_md(
     assert re.search(
         r"Last frame\s+10\s+time\s+30(?:\.0+)?", unrestrained_check_text
     )
+
+
+@pytest.mark.parametrize(
+    ("input_pdb", "name", "elastic_network", "expected_charge", "expected_beads"),
+    [
+        (SSRNA, "M2SSRNA", "off", -5, 40),
+        (UPSTREAM_DSRNA, "M2DSRNA", "legacy", -42, 284),
+    ],
+    ids=["martini2-single-rna-off", "martini2-duplex-rna-legacy"],
+)
+def test_martini2_gromacs_preprocessing_and_minimization_smoke(
+    tmp_path: Path,
+    input_pdb: Path,
+    name: str,
+    elastic_network: str,
+    expected_charge: int,
+    expected_beads: int,
+) -> None:
+    result = build_rna(
+        input_pdb,
+        name,
+        tmp_path / "molecule",
+        elastic_network=elastic_network,
+        martini_version=2,
+    )
+    assert result.martini_version == 2
+    assert result.total_charge == expected_charge
+    assert result.bead_count == expected_beads
+
+    topol_dir = tmp_path / "topol"
+    topol_dir.mkdir()
+    shutil.copy2(MARTINI2_FORCE_FIELD, topol_dir / MARTINI2_FORCE_FIELD.name)
+    shutil.copy2(MARTINI2_IONS, topol_dir / MARTINI2_IONS.name)
+    shutil.copy2(result.itp_path, topol_dir / result.itp_path.name)
+    shutil.copy2(DATA / "water.gro", tmp_path / "water.gro")
+    m2_em = tmp_path / "m2-em.mdp"
+    m2_em.write_text(
+        "\n".join(
+            line
+            for line in (DATA / "em.mdp").read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith("define")
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    topology = tmp_path / "system.top"
+    topology.write_text(
+        "\n".join(
+            [
+                f'#include "topol/{MARTINI2_FORCE_FIELD.name}"',
+                f'#include "topol/{MARTINI2_IONS.name}"',
+                f'#include "topol/{name}.itp"',
+                "",
+                "[ system ]",
+                f"Martini 2 {name} smoke system",
+                "",
+                "[ molecules ]",
+                f"{name}  1",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    run_gmx(
+        tmp_path,
+        "editconf",
+        "-f",
+        str(result.gro_path),
+        "-o",
+        "boxed.gro",
+        "-bt",
+        "dodecahedron",
+        "-d",
+        "1.2",
+    )
+    run_gmx(
+        tmp_path,
+        "solvate",
+        "-cp",
+        "boxed.gro",
+        "-cs",
+        "water.gro",
+        "-radius",
+        "0.21",
+        "-o",
+        "solvated.gro",
+        "-p",
+        "system.top",
+    )
+    run_gmx(
+        tmp_path,
+        "grompp",
+        "-f",
+        str(m2_em),
+        "-c",
+        "solvated.gro",
+        "-r",
+        "solvated.gro",
+        "-p",
+        "system.top",
+        "-o",
+        "ions.tpr",
+    )
+    run_gmx(
+        tmp_path,
+        "genion",
+        "-s",
+        "ions.tpr",
+        "-o",
+        "ionized.gro",
+        "-p",
+        "system.top",
+        "-pname",
+        "NA",
+        "-nname",
+        "CL",
+        "-neutral",
+        "-seed",
+        "20260813",
+        stdin="W\n",
+    )
+    ionized = tmp_path / "ionized.gro"
+    normalized_ion_lines: list[str] = []
+    for line in ionized.read_text(encoding="utf-8").splitlines():
+        residue_name = line[5:10].strip() if len(line) >= 15 else ""
+        atom_name = line[10:15].strip() if len(line) >= 15 else ""
+        if residue_name == "NA" and atom_name == "NA":
+            line = line[:5] + f"{'ION':>5}{'NA+':>5}" + line[15:]
+        elif residue_name == "CL" and atom_name == "CL":
+            line = line[:5] + f"{'ION':>5}{'CL-':>5}" + line[15:]
+        normalized_ion_lines.append(line)
+    ionized.write_text("\n".join(normalized_ion_lines) + "\n", encoding="utf-8")
+    counts = molecule_counts(topology)
+    assert counts["NA"] - counts.get("CL", 0) == -expected_charge
+
+    em_prep = run_gmx(
+        tmp_path,
+        "grompp",
+        "-f",
+        str(m2_em),
+        "-c",
+        "ionized.gro",
+        "-r",
+        "ionized.gro",
+        "-p",
+        "system.top",
+        "-o",
+        "em.tpr",
+    )
+    assert_grompp_has_no_warnings(em_prep)
+    em_run = run_gmx(
+        tmp_path,
+        "mdrun",
+        "-deffnm",
+        "em",
+        "-ntmpi",
+        "1",
+        "-ntomp",
+        "1",
+        "-pin",
+        "off",
+    )
+    em_log = (tmp_path / "em.log").read_text(encoding="utf-8")
+    assert (tmp_path / "em.gro").is_file()
+    assert "converged to Fmax < 100" in em_log
+    assert_mdrun_is_clean(em_run, em_log)
